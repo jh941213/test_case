@@ -42,7 +42,6 @@ def chat_with_inputs(self, query: str, inputs: Optional[Dict[str, Any]] = None, 
 
 #### TestPlanner (테스트 계획 수립 에이전트)
 - **역할**: 요구사항을 분석하여 테스트 카테고리 계획 수립
-- **API Key**: `app-nvTLtHcUofxpVVLlx4KoqyqV`
 - **출력**: 테스트 카테고리 목록 (JSON 형태)
 
 **프롬프트 구조:**
@@ -98,7 +97,6 @@ def chat_with_inputs(self, query: str, inputs: Optional[Dict[str, Any]] = None, 
 
 #### TestScenario (테스트 시나리오 작성 에이전트)
 - **역할**: 카테고리별 상세 테스트 시나리오 생성
-- **API Key**: `app-iud2v9FBgdgObdT9wuo7u2bf`
 - **출력**: 구조화된 테스트 시나리오 (JSON 형태)
 
 **입력 템플릿:**
@@ -131,7 +129,6 @@ def chat_with_inputs(self, query: str, inputs: Optional[Dict[str, Any]] = None, 
 
 #### TestCase (테스트 케이스 작성 에이전트)
 - **역할**: 시나리오를 기반으로 실행 가능한 테스트 케이스 생성
-- **API Key**: `app-tlvSXnjz9OPDHk6BW1dc6r1b`
 - **출력**: 상세한 테스트 케이스 (JSON 형태)
 
 **입력 템플릿:**
