@@ -1,393 +1,414 @@
-# 테스트 시나리오 자동 생성 시스템
+# Test Agent 시스템 문서
 
-대규모 언어 모델(LLM)을 활용한 종합적인 테스트 시나리오 및 테스트 케이스 자동 생성 시스템입니다.
+## 개요
 
-## 📋 목차
-- [주요 기능](#주요-기능)
-- [시스템 아키텍처](#시스템-아키텍처)
-- [설치 방법](#설치-방법)
-- [빠른 시작](#빠른-시작)
-- [생성 프로세스](#생성-프로세스)
-- [설정 옵션](#설정-옵션)
-- [출력 구조](#출력-구조)
-- [고급 사용법](#고급-사용법)
+Test Agent 시스템은 요구사항을 입력받아 자동으로 테스트 시나리오와 테스트 케이스를 생성하는 AI 기반 테스트 자동화 시스템입니다. 이 시스템은 3개의 전문화된 AI 에이전트가 협력하여 체계적이고 포괄적인 테스트 문서를 생성합니다.
 
-## 🚀 주요 기능
+## 시스템 아키텍처
 
-### 1. **자동 테스트 계획 수립**
-- 요구사항 문서 분석
-- 테스트 카테고리 자동 분류
-- 우선순위 기반 계획 수립
+### 핵심 구성 요소
 
-### 2. **카테고리별 시나리오 생성**
-- 카테고리별 집중 생성
-- 병렬 처리로 빠른 생성
-- 중복 자동 제거
-
-### 3. **LLM 기반 품질 평가**
-- AI가 시나리오 완성도 평가
-- 부족한 부분 자동 파악
-- 개선 제안 제공
-
-### 4. **반복적 개선**
-- 평가 결과 기반 자동 개선
-- 최대 3회 반복 개선
-- 점진적 품질 향상
-
-### 5. **상세 테스트 케이스 생성**
-- 시나리오 → 실행 가능한 테스트 케이스 변환
-- 단계별 상세 액션 정의
-- 예상 결과 명시
-
-### 6. **외부 문서 통합**
-- 화면 설계서 참조
-- API 문서 반영
-- UI 가이드라인 적용
-
-## 🏗️ 시스템 아키텍처
-
-```mermaid
-graph TB
-    A[요구사항 문서] --> B[TestAgent]
-    B --> C[PlannerAgent]
-    C --> D[테스트 계획]
-    
-    D --> E[ScenarioGenerator]
-    E --> F[카테고리 1]
-    E --> G[카테고리 2]
-    E --> H[카테고리 N]
-    
-    F --> I[ScenarioEvaluator]
-    G --> I
-    H --> I
-    
-    I -->|개선 필요| E
-    I -->|완료| J[TestCaseGenerator]
-    
-    J --> K[최종 결과물]
-    
-    L[외부 문서] --> J
-    
-    style B fill:#f9f,stroke:#333,stroke-width:4px
-    style I fill:#bbf,stroke:#333,stroke-width:2px
-    style K fill:#bfb,stroke:#333,stroke-width:2px
+```
+agents/
+├── __init__.py          # 패키지 초기화
+├── agent.py            # 기본 에이전트 클래스 및 전문 에이전트들
+├── workflow.py         # 워크플로우 및 오케스트레이션 로직
+├── simple_test.py      # 시스템 테스트용 스크립트
+├── test.ipynb         # Jupyter 노트북 테스트 환경
+├── test_cases.json    # 생성된 테스트 케이스 결과
+└── test_scenarios.json # 생성된 테스트 시나리오 결과
 ```
 
-### 핵심 컴포넌트
+## 에이전트 구조
 
-```mermaid
-classDiagram
-    class TestAgent {
-        +start_new_session()
-        +generate_test_scenarios()
-        -_generate_test_plan()
-        -_process_single_category()
-        -_evaluate_category_completion()
-    }
-    
-    class PlannerAgent {
-        +analyze_requirements_and_plan()
-    }
-    
-    class ScenarioGenerator {
-        +generate_scenarios()
-    }
-    
-    class ScenarioEvaluator {
-        +evaluate_scenarios()
-    }
-    
-    class TestCaseGenerator {
-        +generate_test_cases()
-    }
-    
-    class CategoryProgressTracker {
-        +update_category_progress()
-        +get_next_pending_category()
-        +complete_category()
-    }
-    
-    class ScenarioMetadataManager {
-        +add_scenarios()
-        +get_category_scenarios()
-        -_check_duplicates()
-    }
-    
-    TestAgent --> PlannerAgent
-    TestAgent --> ScenarioGenerator
-    TestAgent --> ScenarioEvaluator
-    TestAgent --> TestCaseGenerator
-    TestAgent --> CategoryProgressTracker
-    TestAgent --> ScenarioMetadataManager
-```
+### 1. BaseAgent 클래스 (`agent.py`)
 
-## 📦 설치 방법
+모든 전문 에이전트의 기반이 되는 기본 클래스입니다.
 
-### 요구사항
-- Python 3.8 이상
-- requests 라이브러리
+**주요 기능:**
+- AionuLLMClient를 활용한 AI API 통신
+- 스트리밍 모드 지원
+- 재시도 메커니즘 (최대 3회)
+- 에러 핸들링 및 로깅
+- 대화 ID 관리
 
-### 설치
-```bash
-# 기본 라이브러리 설치
-pip install requests
-
-# PDF 처리를 원하는 경우 (선택사항)
-pip install PyPDF2
-```
-
-## 🚀 빠른 시작
-
-### 기본 사용법
-
+**핵심 메서드:**
 ```python
-from agents import TestAgent
-
-# 에이전트 초기화
-agent = TestAgent(
-    api_key="your-api-key",
-    output_dir="./test_output",
-    log_level="INFO"
-)
-
-# 요구사항 정의
-requirements = """
-온라인 도서관 관리 시스템 요구사항:
-
-1. 사용자 인증 및 권한
-   - 이메일/비밀번호로 회원가입
-   - 이메일 인증 필수
-   - 역할별 권한 (학생, 교직원, 관리자)
-   
-2. 도서 검색 및 조회
-   - 제목, 저자, ISBN으로 검색
-   - 카테고리별 필터링
-   - 도서 상세정보 및 위치 확인
-"""
-
-# 세션 시작 및 시나리오 생성
-session_id = agent.start_new_session("도서관_시스템")
-results = agent.generate_test_scenarios(requirements)
-
-print(f"생성된 시나리오 수: {results['total_scenarios']}개")
+def chat(self, query: str, user: str = None, conversation_id: str = "", inputs: Optional[Dict[str, Any]] = None)
+def chat_with_inputs(self, query: str, inputs: Optional[Dict[str, Any]] = None, user: str = None, conversation_id: str = "")
 ```
 
-## 🔄 생성 프로세스
+### 2. 전문 에이전트들
 
-```mermaid
-sequenceDiagram
-    participant U as 사용자
-    participant TA as TestAgent
-    participant PA as PlannerAgent
-    participant SG as ScenarioGenerator
-    participant SE as ScenarioEvaluator
-    participant TC as TestCaseGenerator
-    
-    U->>TA: 요구사항 전달
-    TA->>PA: 요구사항 분석 요청
-    PA-->>TA: 테스트 계획 반환
-    
-    loop 각 카테고리별
-        TA->>SG: 시나리오 생성 요청
-        SG-->>TA: 초기 시나리오
-        
-        loop 최대 3회 개선
-            TA->>SE: 품질 평가 요청
-            SE-->>TA: 평가 결과
-            alt 개선 필요
-                TA->>SG: 추가 시나리오 생성
-                SG-->>TA: 개선 시나리오
-            else 완료
-                Note over TA: 다음 카테고리로
-            end
-        end
-    end
-    
-    opt 테스트 케이스 생성 활성화
-        TA->>TC: 테스트 케이스 생성
-        TC-->>TA: 상세 테스트 케이스
-    end
-    
-    TA-->>U: 최종 결과물
-```
+#### TestPlanner (테스트 계획 수립 에이전트)
+- **역할**: 요구사항을 분석하여 테스트 카테고리 계획 수립
+- **API Key**: `app-nvTLtHcUofxpVVLlx4KoqyqV`
+- **출력**: 테스트 카테고리 목록 (JSON 형태)
 
-### 단계별 설명
+**프롬프트 구조:**
+- 20년 경력의 시니어 QA 테스트 플래너 역할
+- 요구사항을 구조화되고 포괄적이며 추적 가능한 테스트 계획으로 변환
+- KT 표준 테스트 시나리오/케이스와 1:1 추적성 보장
 
-#### 1단계: 테스트 계획 수립
-```
-입력: 요구사항 문서
-처리: 시스템 분석, 카테고리 분류, 우선순위 설정
-출력: 구조화된 테스트 계획
-```
+**주요 처리 규칙:**
+- requirement_id 자동 생성: `REQ_{SYSTEM_ABBR}_{NNN}` 형식
+- 중복/유사 요구사항 병합 처리
+- 모든 요구사항의 카테고리 매핑 (1:1 관계)
+- 우선순위 부여: high/medium/low
+- 타입 분류: required/optional
 
-#### 2단계: 카테고리별 시나리오 생성
-```
-입력: 카테고리 정보, 요구사항
-처리: 병렬 생성, 중복 제거, 품질 검증
-출력: 카테고리별 테스트 시나리오
-```
-
-#### 3단계: 평가 및 개선
-```
-입력: 생성된 시나리오
-처리: LLM 평가, 부족 영역 파악, 개선 시나리오 생성
-출력: 개선된 시나리오 세트
-```
-
-#### 4단계: 테스트 케이스 생성
-```
-입력: 최종 시나리오, 외부 문서
-처리: 상세 단계 생성, 테스트 데이터 정의
-출력: 실행 가능한 테스트 케이스
-```
-
-## ⚙️ 설정 옵션
-
-| 매개변수 | 설명 | 기본값 | 타입 |
-|---------|------|--------|------|
-| `api_key` | LLM API 키 | 필수 | str |
-| `evaluator_api_key` | 평가용 별도 API 키 | api_key와 동일 | str |
-| `planner_api_key` | 계획 수립용 별도 API 키 | api_key와 동일 | str |
-| `output_dir` | 출력 디렉토리 경로 | ./test_scenarios | str |
-| `timeout` | API 요청 타임아웃 (초) | 300 | int |
-| `log_level` | 로깅 레벨 | INFO | str |
-| `max_improvements` | 카테고리당 최대 개선 횟수 | 3 | int |
-| `evaluation_bias_mitigation` | 평가 편향 완화 활성화 | True | bool |
-| `evaluation_rounds` | 편향 완화를 위한 평가 라운드 수 | 3 | int |
-| `test_case_generation` | 테스트 케이스 생성 활성화 | False | bool |
-| `test_case_external_docs` | 테스트 케이스용 외부 문서 | [] | List[str] |
-
-### 평가 편향 완화란?
-
-LLM이 평가할 때 발생할 수 있는 편향을 줄이는 기법입니다:
-
-- **순서 편향**: 리스트 앞쪽 항목을 더 중요하게 평가
-- **최근성 편향**: 마지막에 본 내용에 가중치
-- **확증 편향**: 첫 인상에 따른 전체 평가
-
-```python
-# 편향 완화 활성화 (3배 느리지만 더 공정)
-evaluation_bias_mitigation=True
-evaluation_rounds=3  # 3회 평가 후 평균
-
-# 편향 완화 비활성화 (빠르지만 편향 가능)
-evaluation_bias_mitigation=False
-```
-
-## 📁 출력 구조
-
-```
-test_scenarios/
-└── 세션명_20240101_120000/
-    ├── plan/                          # 테스트 계획
-    │   ├── test_plan.json            # 전체 계획 (JSON)
-    │   └── test_plan_summary.md      # 요약 (마크다운)
-    │
-    ├── scenarios/                     # 원본 시나리오
-    │   └── category_scenarios.json    # 카테고리별 원본
-    │
-    ├── final_scenarios/               # 최종 시나리오
-    │   ├── all_test_scenarios.json   # 전체 시나리오
-    │   ├── standard_test_scenarios.json  # 표준 형식
-    │   └── standard_test_scenarios.csv   # CSV 형식
-    │
-    ├── final_test_cases/              # 테스트 케이스
-    │   ├── generated_test_cases.json # 상세 테스트 케이스
-    │   └── generated_test_cases.csv  # CSV 형식
-    │
-    ├── evaluation_results/            # 평가 결과
-    │   └── category_evaluations.json # 카테고리별 평가
-    │
-    └── test_generation_report.md      # 최종 보고서
-```
-
-## 🔧 고급 사용법
-
-### 1. 외부 문서 연동
-
-```python
-agent = TestAgent(
-    api_key="your-api-key",
-    test_case_generation=True,
-    test_case_external_docs=[
-        "/path/to/화면설계서.pdf",
-        "/path/to/API명세서.txt",
-        "/path/to/UI가이드라인.pdf"
-    ]
-)
-```
-
-### 2. 맞춤 설정
-
-```python
-agent = TestAgent(
-    api_key="your-api-key",
-    max_improvements=5,              # 더 많은 개선 시도
-    custom_batch_size=10,            # 배치당 시나리오 수
-    evaluation_bias_mitigation=True, # 공정한 평가
-    evaluation_rounds=5,             # 5회 평가
-    timeout=600,                     # 10분 타임아웃
-    log_level="DEBUG"                # 상세 로그
-)
-```
-
-### 3. 특정 API 키 분리
-
-```python
-agent = TestAgent(
-    api_key="general-key",
-    planner_api_key="planner-specific-key",
-    evaluator_api_key="evaluator-specific-key",
-    testcase_api_key="testcase-specific-key"
-)
-```
-
-## 📊 결과물 예시
-
-### 테스트 시나리오
+**출력 JSON 구조:**
 ```json
 {
-  "scenario_id": "AUTH_001",
-  "category": "사용자 인증 및 권한",
-  "scenario_name": "이메일 회원가입 정상 플로우",
-  "scenario_description": "신규 사용자가 이메일로 회원가입하고 인증을 완료하는 전체 과정",
-  "steps": [
-    "회원가입 페이지 접속",
-    "이메일, 비밀번호 입력",
-    "이메일 인증 메일 확인",
-    "인증 링크 클릭",
-    "로그인 시도"
+  "system_analysis": {
+    "system_name": "시스템명",
+    "main_purpose": "시스템의 주요 목적", 
+    "core_features": ["핵심 기능1", "핵심 기능2"],
+    "complexity_level": "high/medium/low"
+  },
+  "requirements_mapping": [
+    {
+      "requirement_id": "REQ_XXX_001",
+      "requirement_title": "요구사항 제목",
+      "requirement_description": "상세 설명",
+      "category": "카테고리명",
+      "priority": "high/medium/low", 
+      "business_rule": "비즈니스 규칙 요약"
+    }
   ],
-  "expected_result": "회원가입 완료 및 정상 로그인"
+  "test_categories": [
+    {
+      "category": "카테고리명",
+      "category_abbreviation": "3-4글자 약어",
+      "priority": "high/medium/low",
+      "type": "required/optional",
+      "description": "카테고리 설명",
+      "estimated_scenarios": "예상 시나리오 수",
+      "key_scenarios": ["대표 시나리오1", "대표 시나리오2"],
+      "related_requirements": ["REQ_XXX_001", "REQ_XXX_002"]
+    }
+  ],
+  "functional_keywords": ["키워드1", "키워드2"],
+  "testing_strategy": {
+    "total_categories_estimate": "총 카테고리 수",
+    "complexity_level": "high/medium/low"
+  }
 }
 ```
 
-### 테스트 케이스
+#### TestScenario (테스트 시나리오 작성 에이전트)
+- **역할**: 카테고리별 상세 테스트 시나리오 생성
+- **API Key**: `app-iud2v9FBgdgObdT9wuo7u2bf`
+- **출력**: 구조화된 테스트 시나리오 (JSON 형태)
+
+**입력 템플릿:**
+```
+## 원본 요구사항 정의서 : {requirements}
+## 카테고리 정보 : {category}
+```
+
+**처리 방식:**
+- TestPlanner에서 생성된 각 카테고리별로 개별 호출
+- 원본 요구사항과 특정 카테고리 정보를 조합하여 프롬프트 생성
+- 카테고리에 맞는 구체적인 테스트 시나리오 도출
+
+**예상 출력 구조:**
 ```json
-{
-  "testcase_id": "TC_AUTH_001_01",
-  "test_case": "이메일 회원가입 - 정상 케이스",
-  "test_steps": [
-    {
-      "sequence": 1,
-      "step": "브라우저에서 회원가입 페이지(/signup) 접속",
-      "expected_result": "회원가입 폼이 표시됨"
+[
+  {
+    "scenario_id": "TS_TERM_001",
+    "scenario_name": "약관 미동의 시 회원가입 차단 검증",
+    "scenario_description": "상세 시나리오 설명",
+    "requirement_id": "REQ_MEMB_005",
+    "steps": ["단계1", "단계2", "단계3"],
+    "expected_result": "예상 결과",
+    "preconditions": "전제 조건",
+    "test_data": {...},
+    "priority": "high"
+  }
+]
+```
+
+#### TestCase (테스트 케이스 작성 에이전트)
+- **역할**: 시나리오를 기반으로 실행 가능한 테스트 케이스 생성
+- **API Key**: `app-tlvSXnjz9OPDHk6BW1dc6r1b`
+- **출력**: 상세한 테스트 케이스 (JSON 형태)
+
+**입력 템플릿:**
+```
+## 테스트 시나리오 정의서 : {scenario}
+## 외부 참조문서 : {reference_doc}
+```
+
+**처리 방식:**
+- TestScenario에서 생성된 각 시나리오별로 개별 호출
+- 시나리오 정보와 선택적 참조 문서를 조합하여 프롬프트 생성
+- 실행 가능한 상세 테스트 케이스 생성 (단계별 액션/검증 포함)
+
+**예상 출력 구조:**
+```json
+[
+  {
+    "testcase_id": "TC_LOGIN_001_01",
+    "scenario_id": "LOGIN_001", 
+    "screen_id": "로그인 화면",
+    "name": "정상 로그인 - 올바른 이메일과 비밀번호 입력",
+    "description": "상세 테스트 케이스 설명",
+    "precondition": "전제 조건",
+    "steps": [
+      {
+        "seq": 1,
+        "action": "실행할 액션",
+        "expected": "예상 결과"
+      }
+    ],
+    "input": {
+      "email": "user@example.com",
+      "password": "ValidPass123!"
     },
-    {
-      "sequence": 2,
-      "step": "이메일 'test@example.com' 입력",
-      "expected_result": "이메일 형식 검증 통과"
-    }
-  ],
-  "precondition": "인터넷 연결, 최신 브라우저",
-  "input_data": "test@example.com / Test1234!"
+    "expected_result": "최종 예상 결과",
+    "type": "positive|negative|boundary",
+    "status": "pending"
+  }
+]
+```
+
+## 프롬프트 엔지니어링
+
+### 프롬프트 설계 원칙
+
+각 에이전트의 프롬프트는 다음 원칙에 따라 설계되었습니다:
+
+1. **역할 기반 설계**: 각 에이전트는 명확한 전문 역할을 가짐
+2. **구조화된 출력**: 일관된 JSON 스키마로 출력 보장
+3. **추적성 보장**: 요구사항-시나리오-케이스 간 1:1 매핑
+4. **품질 기준**: KT 표준 테스트 문서 품질 수준 준수
+
+### 프롬프트 최적화 전략
+
+#### TestPlanner 프롬프트 특징
+- **상세한 역할 정의**: "20년 경력의 시니어 QA 테스트 플래너"
+- **명확한 출력 제약**: JSON만 반환, 한국어 작성, 열거형 값 제한
+- **일관성 규칙**: 요구사항-카테고리 매핑 검증 로직
+- **추정 가이드라인**: 시나리오 수 산정을 위한 구체적 기준
+
+#### TestScenario 프롬프트 특징
+- **간결한 입력**: 요구사항과 카테고리 정보만 제공
+- **맥락 유지**: 원본 요구사항 전체를 유지하여 일관성 보장
+- **카테고리 집중**: 특정 카테고리에 대한 집중적 시나리오 생성
+
+#### TestCase 프롬프트 특징
+- **시나리오 기반**: 생성된 시나리오를 기반으로 구체적 케이스 도출
+- **참조 문서 지원**: 외부 문서를 통한 추가 컨텍스트 제공
+- **실행 가능성**: 단계별 액션과 검증 포인트 명시
+
+### 프롬프트 템플릿 관리
+
+```python
+# 시나리오 템플릿
+def scenario_template(requirements: str, category: str) -> str:
+    return """
+    ## 원본 요구사항 정의서 : {requirements}
+    ## 카테고리 정보 : {category}
+    """.format(requirements=requirements, category=category)
+
+# 테스트 케이스 템플릿  
+def test_case_template(scenario, reference_doc: str = None) -> str:
+    return """
+    ## 테스트 시나리오 정의서 : {scenario}
+    ## 외부 참조문서 : {reference_doc}
+    """.format(scenario=scenario, reference_doc=reference_doc)
+```
+
+## 워크플로우 시스템 (`workflow.py`)
+
+### 1. 시나리오 생성 워크플로우
+
+```python
+def scenario_workflow(requirement: str, inputs: Dict[str, Any] = None) -> List[Dict[str, Any]]
+```
+
+**처리 단계:**
+1. **계획 수립**: TestPlanner가 요구사항을 분석하여 테스트 카테고리 생성
+2. **병렬 처리**: 각 카테고리별로 TestScenario가 동시에 시나리오 생성
+3. **데이터 통합**: 생성된 시나리오들을 통합하고 메타데이터 추가
+4. **결과 저장**: `test_scenarios.json` 파일로 저장
+
+**병렬 처리 특징:**
+- ThreadPoolExecutor 사용 (최대 5개 워커)
+- Thread-safe 데이터 수집 (threading.Lock 사용)
+- 개별 카테고리 처리 실패 시에도 전체 프로세스 계속 진행
+
+### 2. 테스트 케이스 생성 워크플로우
+
+```python
+def case_workflow(scenarios: List[Dict[str, Any]], reference_doc: str = None, inputs: Dict[str, Any] = None) -> Dict[str, Any]
+```
+
+**처리 단계:**
+1. **시나리오 분석**: 입력받은 시나리오 목록 검증
+2. **병렬 케이스 생성**: 각 시나리오별로 TestCase 에이전트가 동시에 테스트 케이스 생성
+3. **재시도 메커니즘**: JSON 파싱 실패 시 최대 3회 재시도
+4. **데이터 정규화**: 생성된 케이스들에 순번 및 메타데이터 추가
+5. **결과 저장**: `test_cases.json` 파일로 저장
+
+## 데이터 구조
+
+### 테스트 시나리오 구조
+```json
+{
+  "scenario_id": "TS_TERM_001",
+  "category": {
+    "category": "약관 동의",
+    "category_abbreviation": "TERM",
+    "priority": "high",
+    "type": "required"
+  },
+  "scenario_name": "약관 미동의 시 회원가입 차단 검증",
+  "scenario_description": "상세 설명...",
+  "requirement_id": "REQ_MEMB_005",
+  "steps": ["단계1", "단계2", "단계3"],
+  "expected_result": "예상 결과",
+  "preconditions": "전제 조건",
+  "test_data": {...},
+  "priority": "high",
+  "sno": 1
 }
 ```
 
-## 🤝 기여하기
+### 테스트 케이스 구조
+```json
+{
+  "testcase_id": "TC_LOGIN_001_01",
+  "scenario_id": "LOGIN_001",
+  "screen_id": "로그인 화면",
+  "name": "정상 로그인 - 올바른 이메일과 비밀번호 입력",
+  "description": "상세 설명...",
+  "precondition": "전제 조건",
+  "steps": [
+    {
+      "seq": 1,
+      "action": "실행할 액션",
+      "expected": "예상 결과"
+    }
+  ],
+  "input": {
+    "email": "user@example.com",
+    "password": "ValidPass123!"
+  },
+  "expected_result": "최종 예상 결과",
+  "type": "positive|negative|boundary",
+  "status": "pending",
+  "sno": 1
+}
+```
 
-이슈 제보나 개선 제안은 언제든 환영합니다!
+## 핵심 기능
 
-## 📄 라이선스
+### 1. 병렬 처리
+- **성능 최적화**: 여러 에이전트가 동시에 작업하여 처리 시간 단축
+- **확장성**: ThreadPoolExecutor를 통한 동시 처리 수 조절 가능
+- **안정성**: Thread-safe 데이터 수집 및 에러 격리
 
-MIT License
+### 2. 에러 핸들링
+- **재시도 메커니즘**: API 호출 실패 시 자동 재시도
+- **Graceful Degradation**: 일부 실패 시에도 전체 프로세스 계속 진행
+- **상세 로깅**: 각 단계별 상세한 로그 기록
+
+### 3. JSON 파싱 및 검증
+- **유연한 파싱**: 다양한 JSON 구조 지원
+- **데이터 검증**: 필수 필드 존재 여부 확인
+- **타입 안전성**: 예상치 못한 데이터 구조에 대한 방어 코드
+
+## 사용 방법
+
+### 1. 기본 사용법
+```python
+from workflow import scenario_workflow, case_workflow
+
+# 1단계: 테스트 시나리오 생성
+scenarios = scenario_workflow("회원가입 기능을 테스트하고 싶습니다.")
+
+# 2단계: 테스트 케이스 생성
+test_cases = case_workflow(scenarios)
+```
+
+### 2. 간단한 테스트 실행
+```bash
+cd swe/test_agent/agents
+python simple_test.py
+```
+
+### 3. Jupyter 노트북 환경
+`test.ipynb` 파일을 통해 대화형 환경에서 테스트 가능
+
+### 4. 실제 사용 예시
+
+**입력 요구사항:**
+```
+회원가입 기능을 테스트하고 싶습니다.
+- 이메일 인증 필요
+- 약관 동의 필수
+- 중복 이메일 차단
+```
+
+**처리 과정:**
+1. **TestPlanner**: 요구사항 분석 → 카테고리 도출 (인증, 약관동의, 접근제어 등)
+2. **TestScenario**: 각 카테고리별 시나리오 생성 (병렬 처리)
+3. **TestCase**: 각 시나리오별 상세 테스트 케이스 생성 (병렬 처리)
+
+**출력 결과:**
+- `test_scenarios.json`: 4개 시나리오 생성
+- `test_cases.json`: 18개 테스트 케이스 생성
+
+```
+
+## 출력 파일
+
+### test_scenarios.json
+- 생성된 모든 테스트 시나리오
+- 카테고리별 분류 및 우선순위 정보
+- 요구사항 추적성 정보
+
+### test_cases.json
+- 실행 가능한 상세 테스트 케이스
+- 단계별 액션 및 예상 결과
+- 테스트 데이터 및 전제 조건
+
+## 로깅 및 모니터링
+
+시스템은 다음과 같은 로그 정보를 제공합니다:
+- 워크플로우 진행 상황
+- 각 에이전트의 처리 결과
+- 에러 발생 시 상세 정보
+- 성능 메트릭 (처리 시간, 생성된 항목 수)
+
+## 확장성 및 커스터마이징
+
+### 새로운 에이전트 추가
+`BaseAgent`를 상속받아 새로운 전문 에이전트 생성 가능
+
+### 워크플로우 수정
+`workflow.py`의 함수들을 수정하여 처리 로직 변경 가능
+
+### 템플릿 커스터마이징
+`scenario_template()`, `test_case_template()` 함수를 통해 프롬프트 템플릿 수정 가능
+
+## 주의사항
+
+1. **API 키 관리**: 각 에이전트별로 다른 API 키 사용
+2. **네트워크 의존성**: AI API 호출을 위한 안정적인 네트워크 연결 필요
+3. **리소스 사용량**: 병렬 처리로 인한 메모리 및 네트워크 사용량 고려
+4. **JSON 파싱**: AI 응답의 JSON 형식이 일관되지 않을 수 있어 파싱 로직 강화 필요
+
+## 문제 해결
+
+### 일반적인 문제들
+1. **JSON 파싱 에러**: AI 응답 형식 불일치 → 재시도 메커니즘 활용
+2. **API 호출 실패**: 네트워크 또는 API 키 문제 → 로그 확인 및 재시도
+3. **빈 결과**: 프롬프트 템플릿 또는 입력 데이터 검토 필요
+
+### 디버깅 팁
+- 로그 레벨을 DEBUG로 설정하여 상세 정보 확인
+- 개별 에이전트 테스트를 통한 문제 격리
+- JSON 파일 출력 결과 직접 검증
